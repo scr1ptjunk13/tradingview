@@ -32,7 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DownloadIcon, KeyboardIcon, RefreshCcwIcon } from "lucide-react";
 import type { CandlestickData, VolumeData, Timeframe, ChartType } from "@/types/chart";
-import { generateMockCandleData, generateMockVolumeData, simulateRealtimeUpdate, formatPrice } from "@/lib/chart-utils";
+import { generateMockCandleData, generateMockVolumeData, simulateRealtimeUpdate, formatPrice, transformData } from "@/lib/chart-utils";
 import DrawingCanvas from "./drawing-canvas";
 import type { Drawing, DrawingTool, LineDrawing } from "@/types/drawing";
 import { useToolbox } from "./toolbox-provider";
@@ -96,7 +96,7 @@ export default function TradingChart({
 
   const [currentCandleData, setCurrentCandleData] = useState<CandlestickData[]>([]);
   const [currentVolumeData, setCurrentVolumeData] = useState<VolumeData[]>([]);
-  const [pendingChartType, setPendingChartType] = useState<ChartType | null>(null);
+
   const [chartState, setChartState] = useState<ChartState>({
     isReady: false,
     isUpdating: false,
@@ -170,31 +170,7 @@ export default function TradingChart({
     return uniqueData.slice(-MAX_DATA_POINTS);
   }, []);
 
-  // Transform data for chart type
-  const transformData = useCallback((data: CandlestickData[], chartType: ChartType): any[] => {
-    if (!data || data.length === 0) return [];
 
-    if (chartType === "heikin-ashi") {
-      const haData: CandlestickData[] = [];
-      let prevHA: CandlestickData | null = null;
-      
-      data.forEach((candle, index) => {
-        let haOpen = index === 0 ? (candle.open + candle.close) / 2 : prevHA ? (prevHA.open + prevHA.close) / 2 : candle.open;
-        const haClose = (candle.open + candle.high + candle.low + candle.close) / 4;
-        const haHigh = Math.max(candle.high, haOpen, haClose);
-        const haLow = Math.min(candle.low, haOpen, haClose);
-        
-        const haCandle = { time: candle.time, open: haOpen, high: haHigh, low: haLow, close: haClose };
-        haData.push(haCandle);
-        prevHA = haCandle;
-      });
-      return haData;
-    }
-    
-    return ["line", "line-with-markers", "step-line", "area", "hlc-area", "baseline"].includes(chartType)
-      ? data.map((c) => ({ time: c.time, value: c.close }))
-      : data;
-  }, []);
 
   // Transform volume data to HistogramData
   const transformVolumeData = useCallback((data: VolumeData[]): HistogramData<Time>[] => {
@@ -209,12 +185,14 @@ export default function TradingChart({
   const safeRemoveSeries = useCallback((chart: IChartApi, series: ISeriesApi<any> | null) => {
     if (!chart || !series) return;
     try {
-      // Check if chart and series are still valid
-      if (!(chart as any)._internal?.disposed && !(series as any)._internal?.disposed) {
+      // Add additional checks
+      if (typeof chart.removeSeries === 'function' && 
+          !(chart as any)._internal?.disposed && 
+          !(series as any)._internal?.disposed) {
         chart.removeSeries(series);
       }
     } catch (error) {
-      // Silently handle - series may already be removed
+      console.warn("Series removal failed:", error);
     }
   }, []);
 
@@ -343,56 +321,42 @@ export default function TradingChart({
     return updateQueueRef.current;
   }, []);
 
-  // Fix 2: Add safety checks to chart operations
   const updateChartSeries = useCallback(
     async (chart: IChartApi, type: ChartType, candleData: CandlestickData[], volumeData: VolumeData[]): Promise<void> => {
       return queueUpdate(async () => {
-        // Add this check before any chart operations
         if (!chart || (chart as any)._internal?.disposed) {
           console.warn("Chart is disposed, aborting update");
           return;
         }
         
-        // Check if chart is still valid
-        if (!chart || typeof chart.addSeries !== 'function') {
-          console.warn("Chart is disposed, skipping update");
-          return;
-        }
-
-        console.log(`Updating chart series to: ${type}`);
+        console.log(`Updating chart series from ${chartState.currentType} to: ${type}`);
         
-        // Mark as updating
-        setChartState(prev => ({ ...prev, isReady: false, isUpdating: true }));
+        // Immediately update state to prevent concurrent updates
+        setChartState(prev => ({ 
+          ...prev, 
+          isUpdating: true,
+          currentType: type // Update immediately
+        }));
 
         try {
-          // Stop real-time updates during series change
+          // Stop real-time updates
           if (realtimeIntervalRef.current) {
             clearInterval(realtimeIntervalRef.current);
             realtimeIntervalRef.current = null;
           }
 
-          // Remove existing series - simplified
-          try {
-            if (candlestickSeriesRef.current) {
-              chart.removeSeries(candlestickSeriesRef.current);
-              candlestickSeriesRef.current = null;
-            }
-            if (volumeSeriesRef.current) {
-              chart.removeSeries(volumeSeriesRef.current);
-              volumeSeriesRef.current = null;
-            }
-          } catch (error) {
-            // Series already removed, continue
+          // Remove existing series safely
+          if (candlestickSeriesRef.current) {
+            safeRemoveSeries(chart, candlestickSeriesRef.current);
+            candlestickSeriesRef.current = null;
+          }
+          if (volumeSeriesRef.current) {
+            safeRemoveSeries(chart, volumeSeriesRef.current);
+            volumeSeriesRef.current = null;
           }
 
-          // Small delay to ensure proper cleanup
-          await new Promise(resolve => setTimeout(resolve, 100));
-
-          // Check again if chart is still valid before creating new series
-          if (!chart || typeof chart.addSeries !== 'function') {
-            console.warn("Chart disposed during update");
-            return;
-          }
+          // Small delay for cleanup
+          await new Promise(resolve => setTimeout(resolve, 50));
 
           // Create new series
           candlestickSeriesRef.current = createSeries(chart, type);
@@ -401,7 +365,7 @@ export default function TradingChart({
             priceFormat: { type: "volume" },
           });
 
-          // Update data if available
+          // Set data if available
           if (candleData.length > 0 && volumeData.length > 0) {
             const cleanCandleData = validateAndCleanData(candleData);
             const cleanVolumeData = validateAndCleanVolumeData(volumeData);
@@ -410,42 +374,46 @@ export default function TradingChart({
               const transformedData = transformData(cleanCandleData, type);
               const transformedVolumeData = transformVolumeData(cleanVolumeData);
 
-              // Set data in batches to prevent overwhelming the chart
               if (candlestickSeriesRef.current && volumeSeriesRef.current) {
                 candlestickSeriesRef.current.setData(transformedData);
                 volumeSeriesRef.current.setData(transformedVolumeData);
               }
               
-              // Fit content after a small delay
+              // Fit content
               setTimeout(() => {
-                if (chart && chartApiRef.current && typeof chart.timeScale === 'function') {
+                if (chart && typeof chart.timeScale === 'function') {
                   try {
                     chart.timeScale().fitContent();
                   } catch (error) {
-                    console.warn("Failed to fit content (chart may be disposed):", error);
+                    console.warn("Failed to fit content:", error);
                   }
                 }
-              }, 50);
+              }, 100);
             }
           }
 
-          // Update state
+          // Mark as ready
           setChartState(prev => ({
             ...prev,
             isReady: true,
             isUpdating: false,
-            currentType: type,
             lastUpdateId: prev.lastUpdateId + 1,
           }));
+
+          console.log(`Chart series updated successfully to: ${type}`);
 
         } catch (error) {
           console.error("Failed to update chart series:", error);
           setError("Failed to update chart series");
-          setChartState(prev => ({ ...prev, isReady: true, isUpdating: false }));
+          setChartState(prev => ({ 
+            ...prev, 
+            isReady: true, 
+            isUpdating: false 
+          }));
         }
       });
     },
-    [queueUpdate, safeRemoveSeries, createSeries, validateAndCleanData, validateAndCleanVolumeData, transformData, transformVolumeData, setError]
+    [queueUpdate, safeRemoveSeries, createSeries, validateAndCleanData, validateAndCleanVolumeData, transformData, transformVolumeData, setError, chartState.currentType]
   );
 
   // Fetch chart data
@@ -588,27 +556,18 @@ export default function TradingChart({
     };
   }, [chartOptions]);
 
-  // Debounced chart type change logic
-  useEffect(() => {
-    if (pendingChartType && pendingChartType !== selectedChartType) {
-      const timer = setTimeout(() => {
-        setSelectedChartType(pendingChartType);
-        setPendingChartType(null);
-      }, 100);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [pendingChartType, selectedChartType]);
 
-  // Chart type change effect
+
+  // Chart type change effect - FIXED with proper dependencies and logic
   useEffect(() => {
     if (!chartApiRef.current || chartState.isUpdating) return;
     
-    // Only update if chart type actually changed
-    if (chartState.currentType !== selectedChartType) {
+    // Update when chart type actually changes
+    if (chartState.currentType !== selectedChartType && currentCandleData.length > 0) {
+      console.log(`Chart type changing from ${chartState.currentType} to ${selectedChartType}`);
       updateChartSeries(chartApiRef.current, selectedChartType, currentCandleData, currentVolumeData);
     }
-  }, [selectedChartType, chartState.currentType]);
+  }, [selectedChartType, chartState.currentType, chartState.isUpdating, currentCandleData, currentVolumeData, updateChartSeries]);
 
   // Handle data updates
   useEffect(() => {
@@ -650,7 +609,6 @@ export default function TradingChart({
     }
   }, [currentCandleData, currentVolumeData, chartState.isReady, chartState.isUpdating, chartState.currentType, validateAndCleanData, validateAndCleanVolumeData, transformData, transformVolumeData, setError]);
 
-  // Fix 3: Add safety checks to real-time updates
   useEffect(() => {
     // Clean up existing interval
     if (realtimeIntervalRef.current) {
@@ -665,7 +623,7 @@ export default function TradingChart({
         chartState.isReady && 
         !chartState.isUpdating) {
       
-      console.log("Starting real-time updates");
+      console.log("Starting real-time updates for chart type:", chartState.currentType);
       
       realtimeIntervalRef.current = setInterval(() => {
         // Add these checks at the very beginning
@@ -705,16 +663,19 @@ export default function TradingChart({
             const updatedCandle = { ...newCandle, time: newTime };
             const updatedVolume = { ...newVolume, time: newTime };
             
-            // Fix Series Update Validation
+            // ✅ FIXED: Transform the real-time update data for the CURRENT chart type
             if (candlestickSeriesRef.current && 
                 !(candlestickSeriesRef.current as any)._internal?.disposed) {
               try {
-                const transformedUpdate = transformData([updatedCandle], selectedChartType)[0];
+                // Use chartState.currentType instead of selectedChartType
+                const transformedUpdate = transformData([updatedCandle], chartState.currentType)[0];
+                
                 if (transformedUpdate) {
+                  console.log(`Real-time update for ${chartState.currentType}:`, transformedUpdate);
                   candlestickSeriesRef.current.update(transformedUpdate);
                 }
               } catch (error) {
-                console.warn("Series update failed, stopping real-time updates");
+                console.warn("Series update failed, stopping real-time updates:", error);
                 if (realtimeIntervalRef.current) {
                   clearInterval(realtimeIntervalRef.current);
                   realtimeIntervalRef.current = null;
@@ -759,7 +720,7 @@ export default function TradingChart({
         realtimeIntervalRef.current = null;
       }
     };
-  }, [isLoading, selectedTimeframe, currentCandleData.length, chartState.isReady, chartState.isUpdating]);
+  }, [isLoading, selectedTimeframe, currentCandleData.length, chartState.isReady, chartState.isUpdating, chartState.currentType]); // ✅ Added chartState.currentType dependency
 
   // Fetch data on timeframe change
   useEffect(() => {

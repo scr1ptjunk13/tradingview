@@ -1,4 +1,4 @@
-import type { CandlestickData, VolumeData, Timeframe } from "@/types/chart"
+import type { CandlestickData, VolumeData, Timeframe, ChartType } from "@/types/chart"
 
 const MS_PER_MINUTE = 60 * 1000
 const MS_PER_HOUR = 60 * MS_PER_MINUTE
@@ -94,6 +94,43 @@ export function simulateRealtimeUpdate(
   }
 
   return { newCandle, newVolume }
+}
+
+export function transformData(data: CandlestickData[], chartType: ChartType): any[] {
+  if (!data || data.length === 0) return [];
+
+  console.log(`Transforming ${data.length} data points for chart type: ${chartType}`);
+
+  if (chartType === "heikin-ashi") {
+    const haData: CandlestickData[] = [];
+    let prevHA: CandlestickData | null = null;
+    
+    data.forEach((candle, index) => {
+      let haOpen = index === 0 ? (candle.open + candle.close) / 2 : prevHA ? (prevHA.open + prevHA.close) / 2 : candle.open;
+      const haClose = (candle.open + candle.high + candle.low + candle.close) / 4;
+      const haHigh = Math.max(candle.high, haOpen, haClose);
+      const haLow = Math.min(candle.low, haOpen, haClose);
+      
+      const haCandle = { time: candle.time, open: haOpen, high: haHigh, low: haLow, close: haClose };
+      haData.push(haCandle);
+      prevHA = haCandle;
+    });
+    return haData;
+  }
+  
+  // ✅ FIXED: For line-based chart types, return correct format
+  if (["line", "line-with-markers", "step-line", "area", "hlc-area", "baseline"].includes(chartType)) {
+    const transformedData = data.map((c) => ({ 
+      time: c.time, 
+      value: c.close 
+    }));
+    console.log(`Transformed to line data:`, transformedData.length > 0 ? transformedData[0] : 'empty');
+    return transformedData;
+  }
+  
+  // For candlestick and bar types, return original candlestick data
+  console.log(`Using original candlestick data:`, data.length > 0 ? data[0] : 'empty');
+  return data;
 }
 
 export function formatPrice(price: number): string {
