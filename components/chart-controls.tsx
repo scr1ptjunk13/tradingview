@@ -4,34 +4,46 @@ import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CandlestickChartIcon, LineChartIcon, AreaChartIcon, BarChartIcon, MinusIcon, BaselineIcon } from "lucide-react"
-import type { ChartType } from "@/types/chart"
+import type { ChartType, Timeframe } from "@/types/chart"
 
 interface ChartControlsProps {
   selectedChartType: ChartType
   setSelectedChartType: (type: ChartType) => void
+  selectedTimeframe: Timeframe  // Add this prop
+  setSelectedTimeframe: (timeframe: Timeframe) => void  // Add this prop
 }
 
 const chartTypeOptions = [
   { value: "candlestick", label: "Candles", icon: CandlestickChartIcon },
   { value: "bar", label: "Bars", icon: BarChartIcon },
-  { value: "hollow-candlestick", label: "Hollow candles", icon: CandlestickChartIcon }, // Same icon, styling difference
-  { value: "hlc-bar", label: "HLC bars", icon: MinusIcon }, // Placeholder icon
+  { value: "hollow-candlestick", label: "Hollow candles", icon: CandlestickChartIcon },
+  { value: "hlc-bar", label: "HLC bars", icon: MinusIcon },
   { value: "line", label: "Line", icon: LineChartIcon },
-  { value: "line-with-markers", label: "Line with markers", icon: LineChartIcon }, // Same icon, styling difference
-  { value: "step-line", label: "Step line", icon: LineChartIcon }, // Same icon, styling difference
+  { value: "line-with-markers", label: "Line with markers", icon: LineChartIcon },
+  { value: "step-line", label: "Step line", icon: LineChartIcon },
   { value: "area", label: "Area", icon: AreaChartIcon },
-  { value: "hlc-area", label: "HLC area", icon: AreaChartIcon }, // Same icon, styling difference
+  { value: "hlc-area", label: "HLC area", icon: AreaChartIcon },
   { value: "baseline", label: "Baseline", icon: BaselineIcon },
-  { value: "columns", label: "Columns", icon: BarChartIcon }, // Same icon as bars, but different series type
-  { value: "high-low", label: "High-low", icon: MinusIcon }, // Placeholder icon
-  { value: "heikin-ashi", label: "Heikin Ashi", icon: CandlestickChartIcon }, // Same icon, data transformation
-]
+  { value: "columns", label: "Columns", icon: BarChartIcon },
+  { value: "high-low", label: "High-low", icon: MinusIcon },
+  { value: "heikin-ashi", label: "Heikin Ashi", icon: CandlestickChartIcon },
+] as const
 
-export default function ChartControls({ selectedChartType, setSelectedChartType }: ChartControlsProps) {
+export default function ChartControls({ 
+  selectedChartType, 
+  setSelectedChartType, 
+  selectedTimeframe, 
+  setSelectedTimeframe 
+}: ChartControlsProps) {
   return (
     <div className="flex items-center justify-between p-2 bg-gray-900 rounded-lg border border-gray-800 text-sm">
       <div className="flex items-center space-x-2">
-        <ToggleGroup type="single" defaultValue="1m" className="flex space-x-1">
+        <ToggleGroup 
+          type="single" 
+          value={selectedTimeframe} 
+          onValueChange={(value) => value && setSelectedTimeframe(value as Timeframe)}
+          className="flex space-x-1"
+        >
           <ToggleGroupItem
             value="1m"
             aria-label="Select 1 minute timeframe"

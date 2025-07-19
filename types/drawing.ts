@@ -172,6 +172,7 @@ export interface ToolboxState {
   isCollapsed: boolean
   activeToolId: DrawingTool | null
   openSubmenu: DrawingTool | null // ID of the tool whose submenu is open
+  isMobile: boolean
 
   // Tool States
   isDrawingMode: boolean // "Stay in Drawing Mode"
@@ -184,6 +185,23 @@ export interface ToolboxState {
   redo: () => void
   canUndo: boolean
   canRedo: boolean
+
+  // Drawing data (from useDrawingManager)
+  drawings: Drawing[]
+  drawingInProgress: Drawing | null
+  handleMouseDown: (event: React.MouseEvent<SVGSVGElement>) => void
+  handleMouseMove: (event: React.MouseEvent<SVGSVGElement>) => void
+  handleMouseUp: () => void
+  setDrawings: React.Dispatch<React.SetStateAction<Drawing[]>>
+
+  // Actions
+  toggleCollapse: () => void
+  selectTool: (toolId: DrawingTool) => void
+  setOpenSubmenu: (submenu: DrawingTool | null) => void
+  toggleDrawingMode: () => void
+  setMagnetMode: (mode: MagnetMode) => void
+  toggleLockDrawings: () => void
+  toggleHideDrawings: () => void
 }
 
 // Placeholder for tool settings, can be expanded later

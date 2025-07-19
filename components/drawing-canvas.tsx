@@ -32,8 +32,8 @@ export default function DrawingCanvas({
   const getSvgCoordinates = useCallback(
     (point: Point): { x: number; y: number } | null => {
       if (!chartApi || !candlestickSeries) return null
-      const x = chartApi.timeScale().timeToCoordinate(point.time)
-      const y = chartApi.priceScale().priceToCoordinate(point.price)
+      const x = chartApi.timeScale().timeToCoordinate(point.time as any)
+      const y = (chartApi.priceScale('right') as any).priceToCoordinate(point.price)
       if (x === null || y === null) return null
       return { x, y }
     },

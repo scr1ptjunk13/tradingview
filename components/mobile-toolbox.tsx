@@ -154,7 +154,7 @@ export default function MobileToolbox() {
                       tool={tool}
                       isActive={
                         activeToolId === tool.id ||
-                        tool.subtools?.some((section) => section.items.some((item) => item.id === activeToolId))
+                        (tool.subtools?.some((section) => section.items.some((item) => item.id === activeToolId)) ?? false)
                       }
                       onClick={selectTool}
                       isCollapsed={false} // Mobile toolbox is never "collapsed" in the desktop sense
@@ -191,9 +191,9 @@ export default function MobileToolbox() {
                       {
                         section: "MAGNET MODE",
                         items: [
-                          { id: "off", name: "Off", icon: MousePointer2Icon, label: "Off" },
-                          { id: "weak", name: "Weak", icon: MagnetIcon, label: "Weak" },
-                          { id: "strong", name: "Strong", icon: MagnetIcon, label: "Strong" },
+                          { id: "off" as any, name: "Off", icon: MousePointer2Icon, label: "Off" },
+                          { id: "weak" as any, name: "Weak", icon: MagnetIcon, label: "Weak" },
+                          { id: "strong" as any, name: "Strong", icon: MagnetIcon, label: "Strong" },
                         ],
                       },
                     ],

@@ -108,7 +108,7 @@ export function useDrawingManager({
       const y = clientY - chartRect.top
 
       const time = chartApi.timeScale().coordinateToTime(x)
-      const price = chartApi.priceScale().coordinateToPrice(y)
+      const price = (chartApi.priceScale('right') as any).coordinateToPrice(y)
 
       if (time === null || price === null) return null
 
@@ -119,10 +119,10 @@ export function useDrawingManager({
         // This is a conceptual placeholder. Real implementation would be more complex.
         const snappedPrice = price // Placeholder
         const snappedTime = time // Placeholder
-        return { time: snappedTime, price: snappedPrice }
+        return { time: snappedTime as any, price: snappedPrice }
       }
 
-      return { time, price }
+      return { time: time as any, price }
     },
     [chartApi, chartContainerRef, magnetMode, candlestickSeries],
   )
@@ -184,10 +184,10 @@ export function useDrawingManager({
         const tolerance = 10 // pixels
         const drawingToDelete = drawings.find((d) => {
           if (d.type === "trend-line" || d.type === "ray" || d.type === "horizontal-line") {
-            const p1 = chartApi.timeScale().timeToCoordinate(d.points[0].time)
-            const p2 = d.points[1] ? chartApi.timeScale().timeToCoordinate(d.points[1].time) : p1
-            const y1 = chartApi.priceScale().priceToCoordinate(d.points[0].price)
-            const y2 = d.points[1] ? chartApi.priceScale().priceToCoordinate(d.points[1].price) : y1
+            const p1 = chartApi.timeScale().timeToCoordinate(d.points[0].time as any)
+            const p2 = d.points[1] ? chartApi.timeScale().timeToCoordinate(d.points[1].time as any) : p1
+            const y1 = (chartApi.priceScale('right') as any).priceToCoordinate(d.points[0].price)
+            const y2 = d.points[1] ? (chartApi.priceScale('right') as any).priceToCoordinate(d.points[1].price) : y1
 
             if (p1 === null || y1 === null) return false
 
@@ -282,5 +282,6 @@ export function useDrawingManager({
     redo,
     canUndo,
     canRedo,
+    setDrawings, // Expose setDrawings for external use
   }
 }

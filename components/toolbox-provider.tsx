@@ -31,44 +31,33 @@ export function ToolboxProvider({
   candlestickSeriesRef,
   chartContainerRef,
 }: ToolboxProviderProps) {
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("isToolboxCollapsed") === "true"
-    }
-    return false
-  })
-  const [activeToolId, setActiveToolId] = useState<DrawingTool | null>(() => {
-    if (typeof window !== "undefined") {
-      return (localStorage.getItem("activeToolId") as DrawingTool) || getDefaultActiveTool()
-    }
-    return getDefaultActiveTool()
-  })
+  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [activeToolId, setActiveToolId] = useState<DrawingTool | null>(getDefaultActiveTool())
   const [openSubmenu, setOpenSubmenu] = useState<DrawingTool | null>(null)
-  const [isDrawingMode, setIsDrawingMode] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("isDrawingMode") === "true"
-    }
-    return false
-  })
-  const [magnetMode, setContextMagnetMode] = useState<MagnetMode>(() => {
-    if (typeof window !== "undefined") {
-      return (localStorage.getItem("magnetMode") as MagnetMode) || "off"
-    }
-    return "off"
-  })
-  const [lockDrawings, setLockDrawings] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("lockDrawings") === "true"
-    }
-    return false
-  })
-  const [hideDrawings, setHideDrawings] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("hideDrawings") === "true"
-    }
-    return false
-  })
+  const [isDrawingMode, setIsDrawingMode] = useState(false)
+  const [magnetMode, setMagnetMode] = useState<MagnetMode>("off")
+  const [lockDrawings, setLockDrawings] = useState(false)
+  const [hideDrawings, setHideDrawings] = useState(false)
   const [isMobile, setIsMobile] = useState(false) // New state for mobile detection
+
+  // Sync with localStorage after client-side mount to avoid hydration issues
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedCollapsed = localStorage.getItem("isToolboxCollapsed") === "true"
+      const savedActiveToolId = (localStorage.getItem("activeToolId") as DrawingTool) || getDefaultActiveTool()
+      const savedDrawingMode = localStorage.getItem("isDrawingMode") === "true"
+      const savedMagnetMode = (localStorage.getItem("magnetMode") as MagnetMode) || "off"
+      const savedLockDrawings = localStorage.getItem("lockDrawings") === "true"
+      const savedHideDrawings = localStorage.getItem("hideDrawings") === "true"
+      
+      setIsCollapsed(savedCollapsed)
+      setActiveToolId(savedActiveToolId)
+      setIsDrawingMode(savedDrawingMode)
+      setMagnetMode(savedMagnetMode)
+      setLockDrawings(savedLockDrawings)
+      setHideDrawings(savedHideDrawings)
+    }
+  }, [])
 
   // Detect mobile screen size
   useEffect(() => {
@@ -207,7 +196,7 @@ export function ToolboxProvider({
       selectTool,
       setOpenSubmenu, // Expose for ToolButton to open submenus
       toggleDrawingMode,
-      setMagnetMode: setContextMagnetMode, // Rename to avoid conflict
+      setMagnetMode: setMagnetMode, // Magnet mode setter
       toggleLockDrawings,
       toggleHideDrawings,
       undo,
@@ -219,6 +208,7 @@ export function ToolboxProvider({
       handleMouseDown, // Expose mouse handlers for DrawingCanvas
       handleMouseMove,
       handleMouseUp,
+      setDrawings, // Expose setDrawings for lock/hide logic
     }),
     [
       isCollapsed,
@@ -232,7 +222,7 @@ export function ToolboxProvider({
       toggleCollapse,
       selectTool,
       toggleDrawingMode,
-      setContextMagnetMode, // Rename to avoid conflict
+      setMagnetMode, // Magnet mode setter
       toggleLockDrawings,
       toggleHideDrawings,
       undo,
@@ -244,6 +234,7 @@ export function ToolboxProvider({
       handleMouseDown,
       handleMouseMove,
       handleMouseUp,
+      setDrawings,
     ],
   )
 

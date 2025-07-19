@@ -7,8 +7,10 @@ import { useState, useEffect } from "react"
 
 export default function ChartFooter() {
   const [currentTime, setCurrentTime] = useState("")
+  const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
+    setIsClient(true)
     const updateTime = () => {
       const now = new Date()
       setCurrentTime(
@@ -51,7 +53,7 @@ export default function ChartFooter() {
           <CalendarIcon className="h-4 w-4" />
         </Button>
       </div>
-      <div className="text-gray-400 font-mono">{currentTime}</div>
+      <div className="text-gray-400 font-mono">{isClient ? currentTime : "--:--:-- UTC"}</div>
       <div className="flex items-center space-x-2">
         <Button variant="ghost" size="sm" className="text-gray-400 hover:bg-gray-700">
           %

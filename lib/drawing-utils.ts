@@ -14,6 +14,10 @@ export function saveDrawingsToLocalStorage(drawings: Drawing[], chartId = "defau
 
 export function loadDrawingsFromLocalStorage(chartId = "default-chart"): Drawing[] {
   try {
+    // Check if we're in the browser environment
+    if (typeof window === "undefined") {
+      return []
+    }
     const storedDrawings = localStorage.getItem(`drawings-${chartId}`)
     return storedDrawings ? JSON.parse(storedDrawings) : []
   } catch (error) {
